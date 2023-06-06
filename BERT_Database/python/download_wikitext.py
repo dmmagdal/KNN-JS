@@ -1,6 +1,8 @@
 # download_wikitext.py
 # Simple script that downloads the wikitext datasets from huggingface
 # transformers.
+# Python 3.7
+# Windows/MacOS/Linux
 
 
 import json
