@@ -6,9 +6,10 @@
     "typescript": "^5.1.3"
   },
   "name": "bert-database",
-  "version": "0.0.1",
   "description": "Implement BERT_Database repo in NodeJS/Typescript",
+  "version": "0.0.1",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "build": "tsc"
   },

@@ -1,29 +1,26 @@
 // BERT Database class.
 
+import * as fs from 'fs';
+import path from 'path';
+import process from 'process';
 import * as tf from '@tensorflow/tfjs';
 import ort from 'onnxruntime-node';
 import { AutoTokenizer, PreTrainedTokenizer } from '@xenova/transformers';
-import path from 'path';
-import process from 'process';
 
 
-interface functionMap {
+interface functionMap extends Record<string, Function> {
   [key: string]: Function;
 }
 
 
-class BERTDatabase {
+export class BERTDatabase {
   private vectorIndex: tf.Tensor2D;
   private data: string[][];
   private bertPath: string;
   private distanceFunc: string;
-  // private validDistances: object = {
-  //   'L2': this.euclideanDistance,
-  //   'Cosine': this.cosineDistance
-  // };
   private validDistances: functionMap = {
     'L2': this.euclideanDistance,
-    'Cosine': this.cosineDistance
+    'Cosine': this.cosineDistance,
   };
   private limit: number;
   private session: ort.InferenceSession;
@@ -31,17 +28,24 @@ class BERTDatabase {
   public initalizedModel: boolean;
 
   constructor(bertPath: string, distanceFunc: string = 'L2', limit: number = 100) {
-    // Initialize empty (2D) tensor for vector index.
-    this.vectorIndex = tf.tensor2d([0, 0], [0, 768]);
+    // Assert bertPath exists.
+    if (!fs.existsSync(bertPath)) throw new Error(
+      'ERROR: BERT model path ' + bertPath + ' not found.'
+    );
+    
+    // Initialize empty (2D) tensor for vector index. Pass in empty
+    // array because no valies are initialized yet.
+    this.vectorIndex = tf.tensor2d([], [0, 768]);
 
     // Initialize empty list to contain the (key, entry) strings.
     this.data = [];
 
     // Assertion on the distance function. Only euclidean L2 and cosine
     // are supported at the moment.
-    if (this.validDistances.keys().indexOf(distanceFunc) === -1) throw new Error(
+    const validKeys = Object.keys(this.validDistances);
+    if (validKeys.indexOf(distanceFunc) === -1) throw new Error(
       'Invalid distance function ' + distanceFunc + '. Valid ' + 
-      'fuctions include: ' + this.validDistances.keys().toString()
+      'fuctions include: ' + validKeys.toString()
     );
 
     // Set other class variables.
@@ -53,8 +57,23 @@ class BERTDatabase {
 
   public async initializeIndex(): Promise<void> {
     // Load (pretrained) BERT tokenizer.
+    const cacheDir: string = './bert_tokenizer_local';
+    const local_: string = path.join(
+      cacheDir, 'Xenova', 'tokenizer.json'
+    );
+    const localConfig: string = path.join(
+      cacheDir, 'Xenova', 'tokenizer_config.json'
+    );
+    const loadLocal: boolean = [
+      fs.existsSync(cacheDir), fs.existsSync(local_), 
+      fs.existsSync(localConfig),
+    ].every(v => v === true);
     this.tokenizer = await AutoTokenizer.from_pretrained(
-      'Xenova/bert-base-uncased',
+      'Xenova/bert-base-uncased', 
+      {
+        cache_dir: cacheDir,
+        local_files_only: loadLocal,
+      }
     );
 
     // Initalize ORT inference session and load the ONNX BERT model to
@@ -171,13 +190,34 @@ class BERTDatabase {
   }
 
   public get(keys: string[], verbose=false): string[][] {
+    // If the index is empty, simply return now.
+    if (this.length() === 0) {
+      // Assertion to make sure that the index and data lengths are not
+      // out of sync.
+      if (this.length() !== this.data.length) throw new Error(
+        'Index length and data length should match: ' +
+        this.length().toString() + ' (index) vs ' + 
+        this.data.length.toString() + ' (data).'
+      );
+
+      if (verbose) {
+        console.debug('Index is empty. Results returned are blank.');
+      }
+
+      const retrievedPairs: string[][] = [];
+      keys.forEach(() => {
+        retrievedPairs.push(['', '']);
+      });
+      return;
+    }
+
     // Initialize a copy of the data, keeping only the key strings.
     let entries: string[] = [];
     this.data.forEach((pair: string[]) => {
       entries.push(pair[0]);
     });
 
-    let retrievedPairs: string[][] = []
+    const retrievedPairs: string[][] = [];
     keys.forEach((key: string) => {
       // Acquire the index of the key from the copy of the data.
       const index = entries.indexOf(key);
@@ -190,7 +230,7 @@ class BERTDatabase {
         // Output that the target key could not be found in the data if
         // verbose is true.
         if (verbose) {
-          console.debug('Entry for', key, 'was not found');
+          console.debug('Entry for', key, 'was not found.');
         }
 
         // Append a list of two empty strings (which should not be a
@@ -278,6 +318,19 @@ class BERTDatabase {
   }
 
   public async remove(keys: string[], verbose=false): Promise<void> {
+    // If the index is empty, simply return now.
+    if (this.length() === 0) {
+      // Assertion to make sure that the index and data lengths are not
+      // out of sync.
+      if (this.length() !== this.data.length) throw new Error(
+        'Index length and data length should match: ' +
+        this.length().toString() + ' (index) vs ' + 
+        this.data.length.toString() + ' (data).'
+      );
+
+      return;
+    }
+
     // Initialize a copy of the data, keeping only the key strings.
     let entries: string[] = [];
     this.data.forEach((pair: string[]) => {
@@ -337,11 +390,18 @@ class BERTDatabase {
   }
 
   public async get_knn(queryTexts: string[]): Promise<string[][][]> {
-    if (queryTexts.length === 0) throw new Error(
-      'get_knn() requires the number of query texts to be at least one'
+    // Assertion to verify the length of the string array is > 1.
+    // if (queryTexts.length === 0) throw new Error(
+    //   'get_knn() requires the number of query texts to be at least one'
+    // );
+    // Assertion to verify the length of the index is greater than 0.
+    if (this.length() == 0) throw new Error(
+      'Index is unpopulated. Please'
     );
 
-    const k = this.length() > 1 ? 2 : 1; // This is fixed based on RETRO model.
+    // K value. This is fixed based on RETRO model. Use 1 if the index
+    // is too small.
+    const k = this.length() > 1 ? 2 : 1; // 
 
     const returnedTexts: string[][][] = [];
     queryTexts.forEach(async (text: string) => {
@@ -384,8 +444,8 @@ const inputs = '\
 ';
 
 // Model paths.
-const model_ = path.join(process.cwd(), '..', 'plain_bert.onnx'); // Exported BERT
-// const model_pipe = path.join(process.cwd(), '..', 'bert.onnx'); // Exported BERT pipeline
+const model_ = path.join(process.cwd(), 'plain_bert.onnx'); // Exported BERT
+// const model_pipe = path.join(process.cwd(), 'bert.onnx'); // Exported BERT pipeline
 
 // Model variables.
 const func = 'L2'; // may go back and have it set by default

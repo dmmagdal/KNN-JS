@@ -5,7 +5,7 @@ Description: This is an example of KNN implementation that replicates the same e
 
 ### Notes
 
- - Unfortunately, there are not any modules like Spotify's ANNOY or Facebook/Meta's faiss that do the clustering, KNN implementation, and indexing for me. I've decided to implement my own index by holding all BERT embeddings in a tensorflow 2D tensor.
+ - Unfortunately, there are not any modules like Spotify's ANNOY or Facebook/Meta's faiss that do the clustering, KNN implementation, and indexing for me. I've decided to implement my own index by holding all BERT embeddings in a tensorflow 2D tensor in tensorflowjs.
  - The `python/` folder contains a script (and everything needed for a docker environment) to download the wikitext dataset from huggingface hub and save the dataset to JSON files.
 
 
@@ -13,3 +13,4 @@ Description: This is an example of KNN implementation that replicates the same e
 
  - [Wikitext dataset](https://huggingface.co/datasets/wikitext) on Huggingface datasets
  - [Dataset class](https://huggingface.co/docs/datasets/v2.7.1/en/package_reference/main_classes#datasets.Dataset) on Huggingface datasets
+ - [Tokenizers documentation](https://huggingface.co/docs/transformers.js/api/tokenizers) from transformers-js on Huggingface
