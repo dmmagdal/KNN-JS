@@ -4,6 +4,7 @@ Description: Implement the K Nearest Neighbors algorithm in TypeScript as well a
 
 
 ### Refences:
+
  - How to build a KNN in NodeJS without Tensorflow [Medium article](https://towardsdatascience.com/how-to-build-a-k-nn-in-node-js-without-tensorflow-cac5753daa87)
  - Instance-based Learning [Wikipedia article](https://en.wikipedia.org/wiki/Instance-based_learning)
  - K-d Tree [Wikipedia article](https://en.wikipedia.org/wiki/K-d_tree)
