@@ -208,7 +208,7 @@ export class BERTDatabase {
       keys.forEach(() => {
         retrievedPairs.push(['', '']);
       });
-      return;
+      return retrievedPairs;
     }
 
     // Initialize a copy of the data, keeping only the key strings.
@@ -259,7 +259,11 @@ export class BERTDatabase {
     });
     
     // Add each input pair to the database.
-    inputPairs.forEach(async (pair: string []) => {
+    // await inputPairs.forEach(async (pair: string[]) => {
+    // // for (const pair: string[] in inputPairs) {
+    for (let i=0; i < inputPairs.length; i++) {
+      const pair = inputPairs[i];
+
       // Assert that all pair string arrays are strictly of length 2.
       if (pair.length !== 2) throw new Error(
         'Input pairs to index contained an invalid entry: Must have ' +
@@ -285,7 +289,7 @@ export class BERTDatabase {
       }
       else {
         // Verify that the index is not full.
-        if (this.length === this.max_length) {
+        if (this.length() === this.max_length()) {
           // Output that the index is already full if verbose is true.
           if (verbose) {
             console.debug('Index is full. Cannot add', pair, 'to index.');
@@ -302,9 +306,14 @@ export class BERTDatabase {
         const embedding = await this.embed(key);
 
         // Concatentate/append the output tensor to the index.
-        this.vectorIndex = tf.concat(
-          [this.vectorIndex, embedding], 0
-        );
+        if (this.length() !== 0) {
+          this.vectorIndex = tf.concat(
+            [this.vectorIndex, embedding], 0
+          );
+        }
+        else {
+          this.vectorIndex = embedding;
+        }
 
         // One last assertion to make sure that the index and data
         // lengths are not out of sync.
@@ -314,7 +323,7 @@ export class BERTDatabase {
           this.data.length.toString() + ' (data).'
         );
       }
-    });
+    };
   }
 
   public async remove(keys: string[], verbose=false): Promise<void> {
@@ -389,6 +398,15 @@ export class BERTDatabase {
     });
   }
 
+  public clear(verbose=false): void {
+    if (verbose) {
+      console.debug('Clearing index and data.');
+    }
+
+    this.vectorIndex = tf.tensor2d([], [0, 768], 'float32');
+    this.data = [];
+  }
+
   public async get_knn(queryTexts: string[]): Promise<string[][][]> {
     // Assertion to verify the length of the string array is > 1.
     // if (queryTexts.length === 0) throw new Error(
@@ -426,22 +444,53 @@ export class BERTDatabase {
     return returnedTexts;
   }
 
-  public load(): void {
+  public load(pathDir: string): void {
+    // Save paths.
+    const indexPath = path.join(pathDir, 'index.json');
+    const dataPath = path.join(pathDir, 'data.json');
 
+    // Convert the index to a 2D array and save it.
+    const index: number[][] = this.vectorIndex.arraySync();
+    fs.writeFileSync(indexPath, JSON.stringify(dataPath));
+
+    // Save the data.
+    fs.writeFileSync(dataPath, JSON.stringify(this.data));
   }
 
-  public save(): void {
+  public save(pathDir: string): void {
+    // Save paths.
+    const indexPath = path.join(pathDir, 'index.json');
+    const dataPath = path.join(pathDir, 'data.json');
 
+    // Assert that the paths exist.
+    if (fs.existsSync(indexPath)) throw new Error(
+      'ERROR: Index load path ' + indexPath + ' does not exist.'
+    );
+    if (fs.existsSync(dataPath)) throw new Error(
+      'ERROR: Data load path ' + dataPath + ' does not exist.'
+    );
+
+    // If there is already an existing index/data, this function will
+    // overwrite it. Warn that is the case.
+    if (this.length() > 0 && this.initalizedModel) {
+      console.debug(
+        'Loading from save path will override existing index and data.'
+      );
+    }
+
+    // Convert the index to a 2D array and save it.
+    const indexJSON = JSON.parse(fs.readFileSync(indexPath).toString());
+    this.vectorIndex = tf.tensor2d(indexJSON.data, indexJSON.shape);
+
+    // Load the data.
+    this.data = JSON.parse(fs.readFileSync(dataPath).toString()).data;
   }
 }
 
 
-// Inputs.
-const inputs = '\
- There have always been ghosts in the machine. Random\
- segments of code that when grouped together form unexpected\
- protocols.\
-';
+// --------------------------------------------------------------------
+// Initialize database
+// --------------------------------------------------------------------
 
 // Model paths.
 const model_ = path.join(process.cwd(), 'plain_bert.onnx'); // Exported BERT
@@ -455,3 +504,189 @@ const limit = 100; // same here regarding having a default
 // const db = new BERTDatabase(model_);
 const db = new BERTDatabase(model_, func, limit);
 await db.initializeIndex();
+
+// Inputs.
+const inputs = '\
+ There have always been ghosts in the machine. Random\
+ segments of code that when grouped together form unexpected\
+ protocols.\
+';
+const entries: string[] = [
+  "Hello there.", "I am the Senate.", 
+  "I don't like sand.", "Lightsabers make a fine",
+  "Lambda class shuttle", "This is the way.",
+  "You are on the council,", "master yoda",
+  "Help me obi wan kenobi", "It's not the jedi way.",
+];
+const values: string[] = [
+  "General Kenobi!", "It's treason then.", 
+  "It's coarse and rough.", "addition to my collection.",
+  "is on approach from scarif", "This is the way.",
+  "but we do not grant you the rank of master", "you survived",
+  "you're my only hope.", "Dewit.",
+];
+const invalidEntries: string[] = [
+  "Short for a storm trooper.", "You were the chosen one!",
+  "I have no such weaknesses."
+];
+
+
+// --------------------------------------------------------------------
+// Test add function.
+// --------------------------------------------------------------------
+
+console.log('Testing ADD function:');
+console.log('='.repeat(72));
+
+// Input data in a batch.
+// neighbors = entries[:6]
+// continuations = values[:6]
+// pairs = list(zip(neighbors, continuations))
+// db.add(pairs)
+let batchZipInput: string[][] = [];
+for (let i = 0; i < 6; i++) {
+  batchZipInput.push([entries[i], values[i]]);
+}
+await db.add(batchZipInput);
+console.log('Added 6 entries to database');
+console.log('\tExpected length is 6');
+console.log('\tFound length of', db.length());
+
+// Input data one value at a time.
+// neighbors = [entries[7]]
+// continuations = [values[7]]
+// pairs = list(zip(neighbors, continuations))
+// db.add(pairs)
+let singleZipInput: string[][] = [[entries[7], values[7]]];
+await db.add(singleZipInput);
+console.log('Added 1 entry to database');
+console.log('\tExpected length is 7');
+console.log('\tFound length of', db.length());
+
+// Input data using a key that already exists.
+// neighbors = entries[4:6]
+// continuations = values[4:6]
+// pairs = list(zip(neighbors, continuations))
+// db.add(pairs)
+batchZipInput = [];
+for (let i = 4; i < 6; i++) {
+  batchZipInput.push([entries[i], values[i]]);
+}
+await db.add(batchZipInput);
+console.log('Added 2 existing entries to database');
+console.log('\tExpected length is 7');
+console.log('\tFound length of', db.length());
+
+console.log('='.repeat(72));
+
+
+// --------------------------------------------------------------------
+// Test get function.
+// --------------------------------------------------------------------
+
+console.log('Testing GET function:');
+console.log('='.repeat(72));
+
+// Attempt to retrieve data with a valid key (batch retrieval).
+// valid_response = db.get([entries[0], entries[3]])
+// print(valid_response)
+let queryInput: string[] = [entries[0], entries[3]];
+let validResponse = db.get(queryInput);
+console.log('Querying batch of 2 strings from the database');
+for (let i=0; i < queryInput.length; i++) {
+  console.log('\tQuery:', queryInput[i]);
+  console.log('\tValues:', validResponse[i]);
+}
+
+// Attempt to retrieve data with a valid key (single retrieval).
+// valid_response = db.get([entries[4]])
+// print(valid_response)
+validResponse = db.get([entries[4]]);
+console.log('Querying a single string from the database');
+console.log('\tQuery:', entries[4]);
+console.log('\tValues:', validResponse[0]);
+
+// Attempt to retrieve data with an invalid key (batch retrieval).
+// invalid_response = db.get(invalid_entries)
+// print(invalid_response)
+let invalidResponse = db.get(invalidEntries);
+console.log('Querying batch of invalid strings from the database');
+for (let i=0; i < invalidEntries.length; i++) {
+  console.log('\tQuery:', invalidEntries[i]);
+  console.log('\tValues:', invalidResponse[i]);
+}
+
+// Attempt to retrieve data with an invalid key (single retrieval).
+// invalid_response = db.get([invalid_entries[1]])
+// print(invalid_response)
+invalidResponse = db.get([invalidEntries[1]]);
+console.log('Querying a single invalid string from the database');
+console.log('\tQuery:', invalidEntries[1]);
+console.log('\tValues:', invalidResponse[0]);
+
+// Attempt to retrieve data with both invald and valid key (batch
+// retrieval only).
+// mixed_response = db.get([invalid_entries[0], entries[3]])
+// print(mixed_response)
+let mixedResponse = db.get([invalidEntries[0], entries[3]]);
+console.log('Querying batch of valid and invalid strings from the database');
+console.log('\tQuery:', invalidEntries[0]);
+console.log('\tValues:', mixedResponse[0]);
+console.log('\tQuery:', entries[3]);
+console.log('\tValues:', mixedResponse[1]);
+
+console.log('='.repeat(72));
+
+
+// --------------------------------------------------------------------
+// Test remove function.
+// --------------------------------------------------------------------
+
+console.log('Testing REMOVE function:');
+console.log('='.repeat(72));
+
+// Attempt to remove an entry with a valid key (batch removal).
+// valid_response = db.remove(entries[3:5])
+
+// Attempt to remove an entry with a valid key (single removal).
+// valid_response = db.remove([entries[2]])
+
+// Attempt to remove an entry with an invalid key (batch removal).
+// invalid_response = db.remove(invalid_entries[:2])
+
+// Attempt to remove an entry with an invalid key (single removal).
+// invalid_response = db.remove([invalid_entries[0]])
+
+// Attempt to remove an entry with both a valid and an invalid key
+// (batch removal only).
+// mixed_response = db.remove([invalid_entries[-1], entries[-1]])
+
+
+// --------------------------------------------------------------------
+// Test KNN function.
+// --------------------------------------------------------------------
+
+console.log('Testing GET_KNN function:');
+console.log('='.repeat(72));
+
+// Retrieve the K Nearest Neighbors from the database given the input
+// text. KNN doesnt require the input text to be a part of the
+// database.
+
+// Start by clearing out the databse entirely (resets the index and
+// data), then populating it with all (key, value) pairs. Be sure to 
+// reset the contents of the index before populating it.
+
+
+console.log('='.repeat(72));
+
+
+// --------------------------------------------------------------------
+// Test SAVE/LOAD function.
+// --------------------------------------------------------------------
+
+console.log('Testing SAVE & LOAD function:');
+console.log('='.repeat(72));
+
+
+console.log('='.repeat(72));
