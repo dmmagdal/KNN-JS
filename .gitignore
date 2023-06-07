@@ -1,5 +1,7 @@
+**/dist
 **/node_modules
 **.onnx
+BERT_Database/bert_tokenizer_local/Xenova
 BERT_Database/python/wikitext-103-v1_test.json
 BERT_Database/python/wikitext-103-v1_train.json
 BERT_Database/python/wikitext-103-v1_validation.json
