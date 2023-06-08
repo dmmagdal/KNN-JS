@@ -7,4 +7,6 @@
 **/wikitext-2-v1_test.json
 **/wikitext-2-v1_train.json
 **/wikitext-2-v1_validation.json
+BERT_Database/BERT_DB/
 BERT_Database/bert_tokenizer_local/
+BERT_Database/gpt2_tokenizer_local/

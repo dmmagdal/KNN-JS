@@ -8,6 +8,7 @@ Description: This is an example of KNN implementation that replicates the same e
  - Unfortunately, there are not any modules like Spotify's ANNOY or Facebook/Meta's faiss that do the clustering, KNN implementation, and indexing for me. I've decided to implement my own index by holding all BERT embeddings in a tensorflowjs 2D tensor.
  - The `python/` folder contains a script (and everything needed for a docker environment) to download the wikitext dataset from huggingface hub and save the dataset to JSON files.
  - For the BERT model, the database expects a pretrained BERTModel exported from Huggingface/pytorch to ONNX (see [here](https://github.com/dmmagdal/MobileML/tree/main/BERT/Export-HF) for more information). Even though you can use a BERT model exported from a Huggingface pipeline, I made this with the other implementation
+ - When testing loading the WikiText to the BERT database, there is a caveat regarding file sizes that can be read into NodeJS. NodeJS has a set maximum for the length/size of a string that can be created, which is ~1GB for 64 bit systems and ~512MB for 32 bit systems. For reference, the problem file (`wikitext-103-v1_train.json`) is 538MB in size.
 
 
 ### TODO for v1:
