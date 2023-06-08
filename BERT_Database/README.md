@@ -10,6 +10,11 @@ Description: This is an example of KNN implementation that replicates the same e
  - For the BERT model, the database expects a pretrained BERTModel exported from Huggingface/pytorch to ONNX (see [here](https://github.com/dmmagdal/MobileML/tree/main/BERT/Export-HF) for more information). Even though you can use a BERT model exported from a Huggingface pipeline, I made this with the other implementation
  - When testing loading the WikiText to the BERT database, there is a caveat regarding file sizes that can be read into NodeJS. NodeJS has a set maximum for the length/size of a string that can be created, which is ~1GB for 64 bit systems and ~512MB for 32 bit systems. For reference, the problem file (`wikitext-103-v1_train.json`) is 538MB in size.
      - This issue of limited string sizes extends to writing large amounts of data to a string. When using JSON.stringify() on the data object, there is a maximum string size that NodeJS JSON.stringify() is able to create. It does not take much to reach that limit. As such saving/loading data is done in chunks. The index and data are sliced into chunks of equal size and stored to their respective JSON files, each marked with their own number.
+ - Steps to run
+     1. Download wikitext dataset with the script in `python/`. Build the dockerfile and run it or simply type `python download_wikitext.py` in the `python/` folder.
+     2. Download and export the pretrained BERT model. Refer to the export function [here](https://github.com/dmmagdal/MobileML/tree/main/BERT/Export-HF) in the MobileML repository. Placed the export `plain_bert.onnx` file in this folder.
+     3. Run the main program by issuing the following command: `npm install; npm run build; node dist/index.js`.
+ - A full run of the program takes around 45 minutes to complete.
 
 
 ### TODO for v1:
@@ -27,6 +32,9 @@ Description: This is an example of KNN implementation that replicates the same e
          * Reduce number of copies that are made for the sake of convenience
      [ ] Better computational efficiency/runtime for all functions
          * Better way to get k shortest distances
+ [ ] Leverage GPU for some operations (optional given other applications or projects that use this may be using the device GPU for something more important)
+     * Compute BERT embeddings in ONNX
+     * tensorflowjs operations
 
 
 ### References

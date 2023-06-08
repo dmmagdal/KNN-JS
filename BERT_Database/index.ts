@@ -1,6 +1,5 @@
 // Main program.
 
-
 import * as fs from 'fs';
 import path from 'path';
 import process from 'process';
