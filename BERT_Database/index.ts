@@ -5,6 +5,7 @@ import * as fs from 'fs';
 import path from 'path';
 import process from 'process';
 import { AutoTokenizer, PreTrainedTokenizer } from '@xenova/transformers';
+import { SingleBar, Presets } from 'cli-progress';
 import { BERTDatabase } from './BERTDB.js';
 import { processText } from './datasetHelpers.js';
 
@@ -316,11 +317,25 @@ datasetFiles.forEach((file: string) => {
 });
 console.log('Processed all wikitext dataset files.');
 
+// Initialize a cli progressbar. Since this next step is going to take
+// a while, it would be good to do so.
+const progressBar = new SingleBar({
+  format: 'Progress | {bar} | {percentage}% | ETA: {eta}s | {value}/{total}',
+  barCompleteChar: '\u2588',
+  barIncompleteChar: '\u2591',
+  hideCursor: true,
+}, Presets.shades_classic);
+
+// Start the progress bar.
+progressBar.start(chunkedDatasets.length, 0);
+
 // Load all the wikitext dataset data to the BERT Database.
 console.log('Loading Wikitext to BERT Database...');
 const startTime = new Date();
 for (let i = 0; i < chunkedDatasets.length; i++) {
   if (db.length() === db.max_length()) {
+    // Update the progress bar
+    progressBar.update(i + 1);
     continue;
   }
 
@@ -335,8 +350,16 @@ for (let i = 0; i < chunkedDatasets.length; i++) {
     }
     await db.add(data);
   }
+
+  // Update the progress bar
+  progressBar.update(i + 1);
 };
 const endTime = new Date();
+
+// Stop the progress bar.
+progressBar.stop();
+
+// Output status.
 console.log('Successfully loaded Wikitext to BERT Database.');
 console.log('Number of database entries:', db.length());
 console.log('Database size limit (entries):', db.max_length());
