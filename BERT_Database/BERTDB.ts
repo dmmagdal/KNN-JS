@@ -483,29 +483,39 @@ export class BERTDatabase {
     return returnedTexts;
   }
 
-  public load(pathDir: string): void {
+  public save(pathDir: string): void {
     // Save paths.
     const indexPath = path.join(pathDir, 'index.json');
     const dataPath = path.join(pathDir, 'data.json');
+    if (!fs.existsSync(pathDir) || fs.statSync(pathDir).isFile) {
+      fs.mkdirSync(pathDir, {recursive: true});
+    }
 
     // Convert the index to a 2D array and save it.
     const index: number[][] = this.vectorIndex.arraySync();
-    fs.writeFileSync(indexPath, JSON.stringify(dataPath));
+    fs.writeFileSync(indexPath, JSON.stringify(index));
 
     // Save the data.
     fs.writeFileSync(dataPath, JSON.stringify(this.data));
   }
 
-  public save(pathDir: string): void {
+  public load(pathDir: string): void {
+    // Warning about loading databases.
+    console.debug(
+      'WARNING: Loading a database may result in different behavior ' +
+      'the loaded model, distance function, or max limit differ, ' +
+      'even if the data and index are exactly the same.'
+    );
+
     // Save paths.
     const indexPath = path.join(pathDir, 'index.json');
     const dataPath = path.join(pathDir, 'data.json');
 
     // Assert that the paths exist.
-    if (fs.existsSync(indexPath)) throw new Error(
+    if (!fs.existsSync(indexPath)) throw new Error(
       'ERROR: Index load path ' + indexPath + ' does not exist.'
     );
-    if (fs.existsSync(dataPath)) throw new Error(
+    if (!fs.existsSync(dataPath)) throw new Error(
       'ERROR: Data load path ' + dataPath + ' does not exist.'
     );
 
@@ -517,11 +527,26 @@ export class BERTDatabase {
       );
     }
 
-    // Convert the index to a 2D array and save it.
-    const indexJSON = JSON.parse(fs.readFileSync(indexPath).toString());
-    this.vectorIndex = tf.tensor2d(indexJSON.data, indexJSON.shape);
+    // Convert the index from a 2D array to a tensorflowjs 2d tensor
+    // and load it. There is no need to do this step if the saved index
+    // was empty.
+    const indexJSON: number[][] = JSON.parse(
+      fs.readFileSync(indexPath).toString()
+    );
+    if (indexJSON.length > 0) {
+      this.vectorIndex = tf.tensor2d(
+        indexJSON, [indexJSON.length, 768]
+      );
+    }
 
     // Load the data.
-    this.data = JSON.parse(fs.readFileSync(dataPath).toString()).data;
+    this.data = JSON.parse(fs.readFileSync(dataPath).toString());
+
+    // Assert that the index and data lengths are equal.
+    if (this.length() !== this.data.length) throw new Error(
+      'Index length and data length should match: ' +
+      this.length().toString() + ' (index) vs ' + 
+      this.data.length.toString() + ' (data).'
+    );
   }
 }

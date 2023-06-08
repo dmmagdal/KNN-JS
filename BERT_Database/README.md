@@ -13,7 +13,7 @@ Description: This is an example of KNN implementation that replicates the same e
 ### TODO for v1:
 
 [x] Save/load index & data
-[ ] Unit tests for database (verify basic functions work)
+[x] Unit tests for database (verify basic functions work)
 [ ] Full run involving loading texts from wikitext to the database
 
 

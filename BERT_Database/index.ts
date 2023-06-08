@@ -230,9 +230,32 @@ console.log('='.repeat(72));
 console.log('Testing SAVE & LOAD function:');
 console.log('='.repeat(72));
 
+// Test database save function.
+db.save("./BERT_DB");
+const fileStatus: boolean[] = [
+  fs.existsSync('./BERT_DB/data.json'),
+  fs.existsSync('./BERT_DB/index.json'),
+];
+const filesExist: boolean = fileStatus.every((value) => value === true);
+console.log('Current database successfully saved:', filesExist);
+
+// Test database load function.
+const db_copy = new BERTDatabase(model_);
+await db_copy.initializeIndex();
+db_copy.load("./BERT_DB");
+console.log('Database successfully loaded.')
+
+// Given that I privatized the data variables, there is no way for me
+// to do a good comparison between the loaded database and the existing
+// one. The two databases may even have different behaviors depending
+// on the model loaded, distance function, and max limit passed in
+// (even if the data and index are the same).
+console.log(
+  'Loaded database and current database lengths match',
+  db.length() === db_copy.length()
+);
 
 console.log('='.repeat(72));
-
 
 
 // ====================================================================
