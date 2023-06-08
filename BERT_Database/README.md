@@ -9,13 +9,24 @@ Description: This is an example of KNN implementation that replicates the same e
  - The `python/` folder contains a script (and everything needed for a docker environment) to download the wikitext dataset from huggingface hub and save the dataset to JSON files.
  - For the BERT model, the database expects a pretrained BERTModel exported from Huggingface/pytorch to ONNX (see [here](https://github.com/dmmagdal/MobileML/tree/main/BERT/Export-HF) for more information). Even though you can use a BERT model exported from a Huggingface pipeline, I made this with the other implementation
  - When testing loading the WikiText to the BERT database, there is a caveat regarding file sizes that can be read into NodeJS. NodeJS has a set maximum for the length/size of a string that can be created, which is ~1GB for 64 bit systems and ~512MB for 32 bit systems. For reference, the problem file (`wikitext-103-v1_train.json`) is 538MB in size.
+     - This issue of limited string sizes extends to writing large amounts of data to a string. When using JSON.stringify() on the data object, there is a maximum string size that NodeJS JSON.stringify() is able to create. It does not take much to reach that limit. As such saving/loading data is done in chunks. The index and data are sliced into chunks of equal size and stored to their respective JSON files, each marked with their own number.
 
 
 ### TODO for v1:
 
 [x] Save/load index & data
 [x] Unit tests for database (verify basic functions work)
-[ ] Full run involving loading texts from wikitext to the database
+[x] Full run involving loading texts from wikitext to the database
+
+
+### TODO for next time:
+
+[ ] More efficient algorithms
+     [ ] Reduce memory overhead for all functions
+         * Reduce number of variables used/initialized
+         * Reduce number of copies that are made for the sake of convenience
+     [ ] Better computational efficiency/runtime for all functions
+         * Better way to get k shortest distances
 
 
 ### References
@@ -24,3 +35,7 @@ Description: This is an example of KNN implementation that replicates the same e
  - [Dataset class](https://huggingface.co/docs/datasets/v2.7.1/en/package_reference/main_classes#datasets.Dataset) on Huggingface datasets
  - [Tokenizers documentation](https://huggingface.co/docs/transformers.js/api/tokenizers) from transformers-js on Huggingface
  - [TensorflowJS documentation](https://js.tensorflow.org/api/latest/)
+ - tensorflowJS [npm package](https://www.npmjs.com/package/@tensorflow/tfjs)
+ - transformersJS [npm package](https://www.npmjs.com/package/@xenova/transformers)
+ - onnxruntime-node [npm package](https://www.npmjs.com/package/onnxruntime-node?activeTab=readme)
+ - cli-progress [npm package](https://www.npmjs.com/package/cli-progress)

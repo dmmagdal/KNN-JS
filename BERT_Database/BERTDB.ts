@@ -27,6 +27,8 @@ export class BERTDatabase {
     'Cosine': this.cosineDistance,
   };
   private limit: number;
+  private indexChunkSize: number = 5_000;
+  private dataChunkSize: number = 5_000;
   private session: ort.InferenceSession;
   private tokenizer: PreTrainedTokenizer;
   public initalizedModel: boolean;
@@ -39,7 +41,7 @@ export class BERTDatabase {
     
     // Initialize empty (2D) tensor for vector index. Pass in empty
     // array because no valies are initialized yet.
-    this.vectorIndex = tf.tensor2d([], [0, 768]);
+    this.vectorIndex = tf.tensor2d([], [0, 768], 'float32');
 
     // Initialize empty list to contain the (key, entry) strings.
     this.data = [];
@@ -404,7 +406,7 @@ export class BERTDatabase {
             this.vectorIndex.slice(
               [embeddingIndex + 1, 0], 
               [this.length() - embeddingIndex - 1, -1]
-            )
+            ),
           ], 
           0 // axis
         );
@@ -485,18 +487,39 @@ export class BERTDatabase {
 
   public save(pathDir: string): void {
     // Save paths.
-    const indexPath = path.join(pathDir, 'index.json');
-    const dataPath = path.join(pathDir, 'data.json');
+    // const indexPath = path.join(pathDir, 'index.json');
+    // const dataPath = path.join(pathDir, 'data.json');
     if (!fs.existsSync(pathDir) || fs.statSync(pathDir).isFile) {
       fs.mkdirSync(pathDir, {recursive: true});
     }
 
-    // Convert the index to a 2D array and save it.
+    // Convert the index to a 2D array and save it. Note that
+    // JSON.stringify() has a limit on the size of the string it can
+    // create, so the data will have to be saved to multiple files in
+    // chunks.
     const index: number[][] = this.vectorIndex.arraySync();
-    fs.writeFileSync(indexPath, JSON.stringify(index));
+    let indexChunkCounter: number = 1;
+    for (let i = 0; i < this.length(); i += this.indexChunkSize) {
+      // Extract slice and save it to file.
+      const indexSlice: number[][] = index.slice(i, i + this.indexChunkSize);
 
-    // Save the data.
-    fs.writeFileSync(dataPath, JSON.stringify(this.data));
+      const indexString = 'index_' + indexChunkCounter + '.json';
+      const indexPath = path.join(pathDir, indexString);
+      fs.writeFileSync(indexPath, JSON.stringify(indexSlice));
+      indexChunkCounter++;
+    }
+
+    // Save the data. Will also need to chunk the data.
+    let dataChunkCounter: number = 1;
+    for (let j = 0; j < this.length(); j += this.dataChunkSize) {
+      // Extract slice and save it to file.
+      const dataSlice = this.data.slice(j, j + this.indexChunkSize);
+
+      const dataString = 'data_' + dataChunkCounter + '.json';
+      const dataPath = path.join(pathDir, dataString);
+      fs.writeFileSync(dataPath, JSON.stringify(dataSlice));
+      dataChunkCounter++;
+    }
   }
 
   public load(pathDir: string): void {
@@ -507,11 +530,13 @@ export class BERTDatabase {
       'even if the data and index are exactly the same.'
     );
 
-    // Save paths.
-    const indexPath = path.join(pathDir, 'index.json');
-    const dataPath = path.join(pathDir, 'data.json');
+    // Save paths. While these may not be all the possible save paths,
+    // at the bare minimum, at least one JSON for the index and data
+    // should exist.
+    const indexPath = path.join(pathDir, 'index_1.json');
+    const dataPath = path.join(pathDir, 'data_1.json');
 
-    // Assert that the paths exist.
+    // Assert that the initial index and json save paths exist.
     if (!fs.existsSync(indexPath)) throw new Error(
       'ERROR: Index load path ' + indexPath + ' does not exist.'
     );
@@ -527,20 +552,63 @@ export class BERTDatabase {
       );
     }
 
-    // Convert the index from a 2D array to a tensorflowjs 2d tensor
-    // and load it. There is no need to do this step if the saved index
-    // was empty.
-    const indexJSON: number[][] = JSON.parse(
-      fs.readFileSync(indexPath).toString()
+    // Index all the index .json files in the pathDir folder.
+    const indexFolder: string[] = fs.readdirSync(pathDir);
+    const indexFiles: string[] = indexFolder.filter(
+      (file: string) => file.includes('index_')
     );
-    if (indexJSON.length > 0) {
-      this.vectorIndex = tf.tensor2d(
-        indexJSON, [indexJSON.length, 768]
-      );
+
+    // Sort the index .json files in numerical order.
+    const sortedIndexFiles: string[] = indexFiles.sort((a: string, b: string) => {
+      const regex = /index_(\d+)\.json/;
+      const [, numA] = a.match(regex)!;
+      const [, numB] = b.match(regex)!;
+      return parseInt(numA, 10) - parseInt(numB, 10);
+    });
+
+    // Iterate through each index .json file in order. Load the local
+    // slices to number[][] array.
+    const index: number[][] = [];
+    for (let i = 0; i < sortedIndexFiles.length; i++) {
+      const indexPath = path.join(pathDir, sortedIndexFiles[i]);
+      index.push(...JSON.parse(fs.readFileSync(indexPath).toString()));
     }
 
-    // Load the data.
-    this.data = JSON.parse(fs.readFileSync(dataPath).toString());
+    // Convert the number[][] array to a tensorflowjs tf.tensor2d OR
+    // initialize a new (empty) tensorflowjs tf.tensor2d if the length
+    // of the number[][] read in is 0.
+    if (index.length > 0) {
+      this.vectorIndex = tf.tensor2d(
+        index, [index.length, 768]
+      );
+    }
+    else {
+      this.vectorIndex = tf.tensor2d([], [0, 768], 'float32');
+    }
+
+    // Index all the data .json files in the pathDir folder.
+    const dataFolder: string[] = fs.readdirSync(pathDir);
+    const dataFiles: string[] = dataFolder.filter(
+      (file: string) => file.includes('data_')
+    );
+
+    // Sort the data .json files in numerical order.
+    const sortedDataFiles: string[] = dataFiles.sort((a, b) => {
+      const regex = /data_(\d+)\.json/;
+      const [, numA] = a.match(regex)!;
+      const [, numB] = b.match(regex)!;
+      return parseInt(numA, 10) - parseInt(numB, 10);
+    });
+
+    // Iterate through each data .json file in order. Load the local
+    // slices to string[][] array. Set the data to the read in
+    // string[][] array.
+    const data: string[][] = [];
+    for (let i = 0; i < sortedDataFiles.length; i++) {
+      const dataPath = path.join(pathDir, sortedDataFiles[i]);
+      data.push(...JSON.parse(fs.readFileSync(dataPath).toString()));
+    }
+    this.data = data;
 
     // Assert that the index and data lengths are equal.
     if (this.length() !== this.data.length) throw new Error(

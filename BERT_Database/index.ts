@@ -334,7 +334,7 @@ console.log('Loading Wikitext to BERT Database...');
 const startTime = new Date();
 for (let i = 0; i < chunkedDatasets.length; i++) {
   if (db.length() === db.max_length()) {
-    // Update the progress bar
+    // Update the progress bar.
     progressBar.update(i + 1);
     continue;
   }
@@ -351,7 +351,7 @@ for (let i = 0; i < chunkedDatasets.length; i++) {
     await db.add(data);
   }
 
-  // Update the progress bar
+  // Update the progress bar.
   progressBar.update(i + 1);
 };
 const endTime = new Date();
@@ -369,13 +369,24 @@ const elapsedMilliseconds = endTime.getTime() - startTime.getTime();
 const elapsedSeconds = Math.floor(elapsedMilliseconds / 1000);
 const elapsedMinutes = Math.floor(elapsedSeconds / 60);
 const elapsedHours = Math.floor(elapsedMinutes / 60);
-const formattedTime = `${elapsedHours}hours ${elapsedMinutes % 60}minutes ${elapsedSeconds % 60}seconds`;
+const formattedTime = `${elapsedHours} hours, ${elapsedMinutes % 60} minutes, ${elapsedSeconds % 60}seconds`;
 console.log('Time to load Wikitext to database:', formattedTime);
 
 // Save the database.
 console.log('Saving Wikitext BERT Database...');
 db.save('./wikitext-BERT_DB');
+const oldLength: number = db.length();
 console.log('Wikitext BERT Database saved.');
+
+// Test loading the database.
+console.log('Loading Wikitext BERT Database...');
+db.load('./wikitext-BERT_DB');
+console.log('Wikitext BERT Database loaded.');
+
+// Verify all data loaded (cannot verify much else about the integrity
+// of the data loaded).
+const sameLength: boolean = oldLength === db.length();
+console.log('Successfully reloaded Wikitext to BERT Databse:', sameLength);
 
 // Exit the program.
 process.exit(0);

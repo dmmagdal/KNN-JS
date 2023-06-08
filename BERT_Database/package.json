@@ -15,5 +15,8 @@
     "build": "tsc"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@types/cli-progress": "^3.11.0"
+  }
 }
