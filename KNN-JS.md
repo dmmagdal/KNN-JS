@@ -28,3 +28,4 @@ Description: Implement the K Nearest Neighbors algorithm in TypeScript as well a
  - Introduction to information retrieval using KNN and KDTree [GeeksForGeeks article](https://www.geeksforgeeks.org/introductory-guide-to-information-retrieval-using-knn-and-kdtree/)
  - What is Information Retrieval? [GeeksForGeeks article](https://www.geeksforgeeks.org/what-is-information-retrieval/)
  - KNN model complexity [GeeksForGeeks article](https://www.geeksforgeeks.org/knn-model-complexity/)
+ - 9 distance metrics in data science [Medium article](https://towardsdatascience.com/9-distance-measures-in-data-science-918109d069fa)
